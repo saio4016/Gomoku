@@ -5,6 +5,7 @@
 
 #include "pch.h"
 #include <stdio.h>
+#include <conio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
@@ -18,8 +19,8 @@
 
 void game_config(int *row, int *col, int *moku, int *mode, int *count, int *turn, int ***board, int ***sboard);
 void new_config(int *row, int *col, int *moku, int *mode, int *count, int *turn);
-int **make_board(int row, int col);
-int **make_sboard(int row, int col);
+void make_board(int row, int col, int ***board);
+void make_sboard(int row, int col, int ***sboard);
 int load_config(int *row, int *col, int *moku, int *mode, int *count, int *turn);
 int load_board(int row, int col, int *count, int *turn, int **board, int **sboard);
 
@@ -30,11 +31,10 @@ void disp_config(int row, int col, int turn, int count, int moku);
 void undo(int row, int col, int mode, int *count, int *turn, int **board, int **sboard);
 void redo(int row, int col, int mode, int *count, int latest_count, int *turn, int **board, int **sboard);
 void save(int row, int col, int moku, int mode, int count, int **sboard);
-int judge_end(int x, int y, int row, int col, int moku, int turn, int count, int **board);
-void disp_end(int turn, int count, int jud);
+int judge_end(int x, int y, int row, int col, int moku, int mode, int count, int turn, int **board);
+void disp_result(int turn, int count, int jud);
 void game_end(int row, int col, int **board, int **sboard);
 void change_turn(int *turn);
-
 
 void CPU(int *x, int *y, int row, int col, int moku, int turn, int count, int **board);
 int CPU_brain(int x, int y, int row, int col, int moku, int turn, int **board);
@@ -45,32 +45,34 @@ const int dy[] = { 1,0,-1,-1,-1,0,1,1 };
 
 int main() {
 	/*設定*/
-	int row, col, moku, mode; //縦,横,目,mode = (1:対人戦, 2:COM戦(先手), 3:COM戦(後手))
+	int row, col, moku, mode; //縦,横,並べる数,mode = (1:対人戦, 2:COM戦(先手), 3:COM戦(後手))
 	int count, turn; //現在の手数,現在の手番
 	int **board, **sboard; //盤面,置いた場所保存用([i][j]: i=(0:x,1:y)座標, j手目)
 	game_config(&row, &col, &moku, &mode, &count, &turn, &board, &sboard); //初期設定
+	printf("ボタンを押すと対局がスタートします"); _getch();
+	printf("\n\n");
 
 	/*対局*/
 	while (1) {
 		int x, y;//置く場所
-		disp(row, col, board); printf("%d手目 ", count);
+		disp(row, col, board); printf("・%d手目 ", count);
 		if (mode == 1 || (mode == 2 && (count % 2)) || mode == 3 && !(count % 2)) {
 			//自分のターン
 			if (input(&x, &y, row, col, moku, mode, &count, &turn, board, sboard)) continue;
 		}
 		else {
 			//相手のターン
-			CPU(&x, &y, row, col, moku, mode, count, board);
+			CPU(&x, &y, row, col, moku, turn, count, board);
 		}
 
 		board[y][x] = turn; //駒を置く
 		sboard[0][count - 1] = x, sboard[1][count - 1] = y;//置いた場所を記録する
 
 		//終了判定(戻り値:1,勝利/敗北 2,反則負け 3,引き分け)
-		int jud = judge_end(x, y, row, col, moku, mode, count, board);
+		int jud = judge_end(x, y, row, col, moku, mode, count, turn, board);
 		if (jud) {
 			disp(row, col, board);
-			disp_end(mode, count, jud);
+			disp_result(turn, count, jud);
 			break;
 		}
 
@@ -84,21 +86,21 @@ int main() {
 
 void game_config(int *row, int *col, int *moku, int *mode, int *count, int *turn, int ***board, int ***sboard) {
 	while (1) {
-		printf("==============(Gomoku)==============\n");
+		printf("=============(N目並べ)=============\n");
 		printf(" 1: 新規ゲーム  2: ロード  3: 終了\n");
-		printf("====================================\n");
+		printf("===================================\n");
 		char str[256]; //入力用
 		printf("--> "); fgets(str, 256, stdin);
 		switch (strtol(str, NULL, 10)) {
 		case 1:
 			new_config(row, col, moku, mode, count, turn); //新規設定
-			*board = make_board(*row, *col); //盤面作成
-			*sboard = make_sboard(*row, *col); //保存用配列作成
+			make_board(*row, *col,board); //盤面作成
+			make_sboard(*row, *col,sboard); //保存用配列作成
 			break;
 		case 2:
 			if (load_config(row, col, moku, mode, count, turn)) continue; //設定ロード
-			*board = make_board(*row, *col); //盤面作成
-			*sboard = make_sboard(*row, *col); //保存用配列作成
+			make_board(*row, *col,board); //盤面作成
+			make_sboard(*row, *col,sboard); //保存用配列作成
 			if (load_board(*row, *col, count, turn, *board, *sboard)) continue; //盤面ロード
 			break;
 		case 3:
@@ -112,18 +114,18 @@ void game_config(int *row, int *col, int *moku, int *mode, int *count, int *turn
 }
 
 void new_config(int *row, int *col, int *moku, int *mode, int *count, int *turn) {
-	printf("------------(設定)------------\n");
+	printf(" ------------(設定)------------\n");
 	char r[256], c[256], m[256]; //入力用
 	while (1) {
-		printf("高さ(3~99)--> "); fgets(r, 256, stdin);
-		printf("幅(3~99)  --> "); fgets(c, 256, stdin);
+		printf("・高さ(3~99) --> "); fgets(r, 256, stdin);
+		printf("・幅(3~99)   --> "); fgets(c, 256, stdin);
 		*row = strtol(r, NULL, 10), *col = strtol(c, NULL, 10); //数値変換
 		if (!(3 <= *row && *row <= 99 && 3 <= *col && *col <= 99)) {
 			//不正入力
 			printf("Error\n");
 			continue;
 		}
-		printf("つなげる数(3~%d)--> ", (*row > *col ? *row : *col));
+		printf("・つなげる数(3~%d) --> ", (*row > *col ? *row : *col));
 		fgets(m, 256, stdin); *moku = strtol(m, NULL, 10); //数値変換
 		if (*moku < 3 || (*row < *moku && *col < *moku)) {
 			//不正入力
@@ -133,8 +135,11 @@ void new_config(int *row, int *col, int *moku, int *mode, int *count, int *turn)
 		break;
 	}
 	while (1) {
-		printf("1: 対人戦  2: COM戦(先手)  3: COM戦(後手))");
-		printf("--> ");
+		printf("・対戦モード\n");
+		printf(" 1: 対人戦\n");
+		printf(" 2: COM戦(先手)\n");
+		printf(" 3: COM戦(後手)\n");
+		printf(" --> ");
 		fgets(m, 256, stdin); *mode = strtol(m, NULL, 10); //入力&数値変換
 		if (!(1 <= *mode && *mode <= 3)) {
 			printf("Error\n");
@@ -144,26 +149,25 @@ void new_config(int *row, int *col, int *moku, int *mode, int *count, int *turn)
 	}
 	*count = 1; //現在の手数を1に設定
 	*turn = BLACK;
+	printf("-----------------------------\n");
 }
 
-int **make_board(int row, int col) {
-	int **pboard = (int**)malloc(sizeof(int*)*row);
-	for (int i = 0; i < row; i++) pboard[i] = (int*)malloc(sizeof(int)*col);
+void make_board(int row, int col, int ***board) {
+	*board = (int**)malloc(sizeof(int*)*row);
+	for (int i = 0; i < row; i++) (*board)[i] = (int*)malloc(sizeof(int)*col);
 	for (int i = 0; i < row; i++) {
 		for (int j = 0; j < col; j++) {
-			pboard[i][j] = NONE;
+			(*board)[i][j] = NONE;
 		}
 	}
-	return pboard;
 }
 
-int **make_sboard(int row, int col) {
-	int **psboard = (int**)malloc(sizeof(int*)*(2));
-	for (int i = 0; i < 2; i++) psboard[i] = (int*)malloc(sizeof(int)*(row*col));
+void make_sboard(int row, int col, int ***sboard) {
+	*sboard = (int**)malloc(sizeof(int*)*(2));
+	for (int i = 0; i < 2; i++) (*sboard)[i] = (int*)malloc(sizeof(int)*(row*col));
 	for (int i = 0; i < row*col; i++) {
-		psboard[0][i] = psboard[1][i] = -1;
+		(*sboard)[0][i] = (*sboard)[1][i] = -1;
 	}
-	return psboard;
 }
 
 int load_config(int *row, int *col, int *moku, int *mode, int *count, int *turn) {
@@ -250,11 +254,11 @@ void disp(int row, int col, int **board) {
 
 int input(int *x, int *y, int row, int col, int moku, int mode, int *count, int *turn, int **board, int **sboard) {
 	char xx[256], yy[256]; //入力用
-	printf("%s :\n", (*count % 2 ? "先手○" : "後手●"));
-	if ((mode == 2 && (*count % 2)) || (mode == 3 && !(*count % 2))) printf("(あなたの番) ");
-	printf("Open menu: (x,y) = (0,0)\n");
-	printf("x座標--> "); fgets(xx, 256, stdin);
-	printf("y座標--> "); fgets(yy, 256, stdin);
+	printf("%s", *turn == BLACK ? "先手○" : "後手●");
+	if (mode == 2 || mode == 3) printf("(あなたの番)");
+	printf(":(0,0)でメニューを開く\n");
+	printf(" x座標--> "); fgets(xx, 256, stdin);
+	printf(" y座標--> "); fgets(yy, 256, stdin);
 	if (strlen(xx) == 2 && strlen(yy) == 2 && xx[0] == '0' && yy[0] == '0') {
 		menu(row, col, moku, mode, count, turn, board, sboard);
 		return 1; //->再度盤面出力
@@ -374,7 +378,8 @@ void save(int row, int col, int moku, int mode, int count, int **sboard) {
 	fclose(fp);
 }
 
-int judge_end(int x, int y, int row, int col, int moku, int turn, int count, int **board) {
+int judge_end(int x, int y, int row, int col, int moku, int mode, int count, int turn, int **board) {
+	int win = 0, lose = 0;
 	//置いたところから探索
 	for (int k = 0; k < 4; k++) {
 		int nx = x, ny = y;
@@ -395,13 +400,16 @@ int judge_end(int x, int y, int row, int col, int moku, int turn, int count, int
 			if (board[ny][nx] != turn) break;
 			cnt++;
 		}
-		if (turn == BLACK && cnt > moku) return 2; //反則判定
-		else if (cnt >= moku) return 1; //勝利判定
+		if (turn == BLACK && cnt > moku) lose = 1; //反則判定
+		else if (cnt >= moku) win = 1; //勝利判定
 	}
+	if (lose) return 2;
+	if (win) return 1;
 	if (row*col == count) return 3; //引き分け
 	return 0;
-}
-void disp_end(int turn, int count, int jud) {
+}
+
+void disp_result(int turn, int count, int jud) {
 	switch (jud) {
 	case 1: //勝利
 		printf("まで%d手 %sの勝ち\n", count, (turn == BLACK ? "先手" : "後手"));
@@ -419,9 +427,11 @@ void game_end(int row, int col, int **board, int **sboard) {
 	for (int i = 0; i < row; i++) {
 		free(board[i]);
 	}
+	free(board);
 	for (int i = 0; i < 2; i++) {
 		free(sboard[i]);
 	}
+	free(sboard);
 }
 
 void change_turn(int *turn) {
@@ -451,9 +461,9 @@ void CPU(int *x, int *y, int row, int col, int moku, int turn, int count, int **
 			}
 		}
 	}
-	printf("%s (CPUの番):\n", (turn == BLACK ? "先手○" : "後手●"));
-	printf("x座標--> %d\n", *x + 1);
-	printf("y座標--> %d\n", *y + 1);
+	printf("%s(CPUの番):\n", (turn == BLACK ? "先手○" : "後手●"));
+	printf(" x座標--> %d\n", *x + 1);
+	printf(" y座標--> %d\n", *y + 1);
 }
 
 int CPU_brain(int x, int y, int row, int col, int moku, int turn, int **board) {
