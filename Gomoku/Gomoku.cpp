@@ -1,7 +1,17 @@
 ﻿// Gomoku.cpp : このファイルには 'main' 関数が含まれています。プログラム実行の開始と終了がそこで行われます。
 //
 
-/*2019/01/28*/
+/********************************************
+Name      ：Gomoku.cpp
+Function  ：Gomokunarabe
+Author    ：saio4016
+Date      ：2019/01/23(last update:2019/04/10)
+Language  ：C
+IDE/Editor：Visual Studio 2017
+Time      ：1week
+Notices   ：Use "Config.txt" and "Board.txt".
+			This is an assignment at my University.
+********************************************/
 
 #include "pch.h"
 #include <stdio.h>
