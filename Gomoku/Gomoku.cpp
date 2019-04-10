@@ -43,7 +43,7 @@ void redo(int row, int col, int mode, int *count, int latest_count, int *turn, i
 void save(int row, int col, int moku, int mode, int count, int **sboard);
 int judge_end(int x, int y, int row, int col, int moku, int mode, int count, int turn, int **board);
 void disp_result(int turn, int count, int jud);
-void game_end(int row, int col, int **board, int **sboard);
+void game_end(int row, int col, int ***board, int ***sboard);
 void change_turn(int *turn);
 
 void CPU(int *x, int *y, int row, int col, int moku, int turn, int count, int **board);
@@ -90,7 +90,7 @@ int main() {
 		count++; //手数を更新
 	}
 
-	game_end(row, col, board, sboard);
+	game_end(row, col, &board, &sboard);
 	return 0;
 }
 
@@ -206,7 +206,6 @@ int load_board(int row, int col, int *count, int *turn, int **board, int **sboar
 	//ファイル読み込み失敗
 	if ((fp = fopen("Board.txt", "r")) == NULL) {
 		printf("File open error\n");
-		game_end(row, col, board, sboard);
 		exit(1);
 	}
 	//データがない場合
@@ -433,15 +432,15 @@ void disp_result(int turn, int count, int jud) {
 	}
 }
 
-void game_end(int row, int col, int **board, int **sboard) {
+void game_end(int row, int col, int ***board, int ***sboard) {
 	for (int i = 0; i < row; i++) {
-		free(board[i]);
+		free((*board)[i]);
 	}
-	free(board);
+	free(*board);
 	for (int i = 0; i < 2; i++) {
-		free(sboard[i]);
+		free((*sboard)[i]);
 	}
-	free(sboard);
+	free(*sboard);
 }
 
 void change_turn(int *turn) {
