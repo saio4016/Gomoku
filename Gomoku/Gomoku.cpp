@@ -5,7 +5,7 @@
 Name      ：Gomoku.cpp
 Function  ：Gomokunarabe
 Author    ：saio4016
-Date      ：2019/01/23(last update:2019/04/10)
+Date      ：2019/01/23(last update:2019/04/12)
 Language  ：C
 IDE/Editor：Visual Studio 2017
 Time      ：1week
@@ -29,8 +29,8 @@ Notices   ：Use "Config.txt" and "Board.txt".
 
 void game_config(int *row, int *col, int *moku, int *mode, int *count, int *turn, int ***board, int ***sboard);
 void new_config(int *row, int *col, int *moku, int *mode, int *count, int *turn);
-void make_board(int row, int col, int ***board);
-void make_sboard(int row, int col, int ***sboard);
+int **make_board(int row, int col);
+int **make_sboard(int row, int col);
 int load_config(int *row, int *col, int *moku, int *mode, int *count, int *turn);
 int load_board(int row, int col, int *count, int *turn, int **board, int **sboard);
 
@@ -43,7 +43,7 @@ void redo(int row, int col, int mode, int *count, int latest_count, int *turn, i
 void save(int row, int col, int moku, int mode, int count, int **sboard);
 int judge_end(int x, int y, int row, int col, int moku, int mode, int count, int turn, int **board);
 void disp_result(int turn, int count, int jud);
-void game_end(int row, int col, int ***board, int ***sboard);
+void game_end(int row, int col, int **board, int **sboard);
 void change_turn(int *turn);
 
 void CPU(int *x, int *y, int row, int col, int moku, int turn, int count, int **board);
@@ -60,10 +60,11 @@ int main() {
 	int **board, **sboard; //盤面,置いた場所保存用([i][j]: i=(0:x,1:y)座標, j手目)
 	game_config(&row, &col, &moku, &mode, &count, &turn, &board, &sboard); //初期設定
 	printf("ボタンを押すと対局がスタートします"); _getch();
-	printf("\n\n");
+	printf("\n");
 
 	/*対局*/
 	while (1) {
+		printf("\n");
 		int x, y;//置く場所
 		disp(row, col, board); printf("・%d手目 ", count);
 		if (mode == 1 || (mode == 2 && (count % 2)) || mode == 3 && !(count % 2)) {
@@ -90,7 +91,7 @@ int main() {
 		count++; //手数を更新
 	}
 
-	game_end(row, col, &board, &sboard);
+	game_end(row, col, board, sboard);
 	return 0;
 }
 
@@ -104,13 +105,13 @@ void game_config(int *row, int *col, int *moku, int *mode, int *count, int *turn
 		switch (strtol(str, NULL, 10)) {
 		case 1:
 			new_config(row, col, moku, mode, count, turn); //新規設定
-			make_board(*row, *col,board); //盤面作成
-			make_sboard(*row, *col,sboard); //保存用配列作成
+			*board = make_board(*row, *col); //盤面作成
+			*sboard = make_sboard(*row, *col); //保存用配列作成
 			break;
 		case 2:
 			if (load_config(row, col, moku, mode, count, turn)) continue; //設定ロード
-			make_board(*row, *col,board); //盤面作成
-			make_sboard(*row, *col,sboard); //保存用配列作成
+			*board = make_board(*row, *col); //盤面作成
+			*sboard = make_sboard(*row, *col); //保存用配列作成
 			if (load_board(*row, *col, count, turn, *board, *sboard)) continue; //盤面ロード
 			break;
 		case 3:
@@ -162,22 +163,24 @@ void new_config(int *row, int *col, int *moku, int *mode, int *count, int *turn)
 	printf("-----------------------------\n");
 }
 
-void make_board(int row, int col, int ***board) {
-	*board = (int**)malloc(sizeof(int*)*row);
-	for (int i = 0; i < row; i++) (*board)[i] = (int*)malloc(sizeof(int)*col);
+int **make_board(int row, int col) {
+	int **pboard = (int**)malloc(sizeof(int*)*row);
+	for (int i = 0; i < row; i++) pboard[i] = (int*)malloc(sizeof(int)*col);
 	for (int i = 0; i < row; i++) {
 		for (int j = 0; j < col; j++) {
-			(*board)[i][j] = NONE;
+			pboard[i][j] = NONE;
 		}
 	}
+	return pboard;
 }
 
-void make_sboard(int row, int col, int ***sboard) {
-	*sboard = (int**)malloc(sizeof(int*)*(2));
-	for (int i = 0; i < 2; i++) (*sboard)[i] = (int*)malloc(sizeof(int)*(row*col));
+int **make_sboard(int row, int col) {
+	int **psboard = (int**)malloc(sizeof(int*)*(2));
+	for (int i = 0; i < 2; i++) psboard[i] = (int*)malloc(sizeof(int)*(row*col));
 	for (int i = 0; i < row*col; i++) {
-		(*sboard)[0][i] = (*sboard)[1][i] = -1;
+		psboard[0][i] = psboard[1][i] = -1;
 	}
+	return psboard;
 }
 
 int load_config(int *row, int *col, int *moku, int *mode, int *count, int *turn) {
@@ -432,15 +435,15 @@ void disp_result(int turn, int count, int jud) {
 	}
 }
 
-void game_end(int row, int col, int ***board, int ***sboard) {
+void game_end(int row, int col, int **board, int **sboard) {
 	for (int i = 0; i < row; i++) {
-		free((*board)[i]);
+		free(board[i]);
 	}
-	free(*board);
+	free(board);
 	for (int i = 0; i < 2; i++) {
-		free((*sboard)[i]);
+		free(sboard[i]);
 	}
-	free(*sboard);
+	free(sboard);
 }
 
 void change_turn(int *turn) {
